@@ -1,0 +1,37 @@
+_format_version: "2.1"
+_transform: true
+
+services:
+- name: claim-service
+  url: http://claim-service:8080/api/Claims
+  routes:
+  - name: api-claims-route
+    paths:
+    - /api/Claims
+    strip_path: true
+    plugins:
+    - name: jwt
+      config:
+        key_claim_name: iss
+        secret_is_base64: false
+        run_on_preflight: true
+        maximum_expiration: 3600
+        claims_to_verify:
+          - exp
+        uri_param_names:
+          - jwt      
+        header_names:
+          - Authorization       
+
+consumers:
+- username: kong_consumer
+
+jwt_secrets:
+  - consumer: kong_consumer
+    key: http://localhost:8080/realms/e-claims
+    algorithm: RS256
+    rsa_public_key: |
+      -----BEGIN PUBLIC KEY-----
+      MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA4Dd9aX5+a6UgF+c6Roeko6z/sxjb+SGA+vGJS1duVOpkjxj9yXYxk155cNGE42bxPZfV+fJ9HmkvYJa/IGRzhS/bJefFMmZm2Y41aGCgTbYsR4BkUC+vMjhiOap04B1oe8LA/2oH+jro/VdgRzm7Xa+41O1jCpbzbDt+vMDt/pG0acrWvGw/B6hV8NpPYpQEpri2LmCPEgNN1/npxqXoaOY966aO8/qtMYkKWWPMEQ4GHSilDamuJoC9YbiHqJK6QtTEisTAO2jUwdFd+nwbIma/RK0p8H9FMxKlcFL2C2kPCnTlm+V/KL82Dvi0gRyZZE4eBpR7w6w9+lPPAkp3JQIDAQAB
+      -----END PUBLIC KEY-----
+

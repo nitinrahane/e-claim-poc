@@ -1,0 +1,116 @@
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
+using Microsoft.OpenApi.Models;
+
+var builder = WebApplication.CreateBuilder(args);
+
+// Add services to the container.
+// Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
+builder.Services.AddEndpointsApiExplorer();
+
+builder.Services.AddSwaggerGen(c =>
+{
+    c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
+    {
+        Name = "Authorization",
+        Type = SecuritySchemeType.ApiKey,
+        Scheme = "Bearer",
+        BearerFormat = "JWT",
+        In = ParameterLocation.Header,
+        Description = "Enter 'Bearer' followed by a space and the token",
+    });
+    c.AddSecurityRequirement(new OpenApiSecurityRequirement
+    {
+        {
+            new OpenApiSecurityScheme
+            {
+                Reference = new OpenApiReference { Type = ReferenceType.SecurityScheme, Id = "Bearer" }
+            },
+            new string[] {}
+        }
+    });
+});
+
+
+builder.Services.AddAuthentication("Bearer")
+    .AddJwtBearer("Bearer", options =>
+    {
+        options.Authority = "http://localhost:8080/realms/e-claims"; // Keycloak realm
+        options.Audience = "kong"; // Your client ID in Keycloak
+        options.RequireHttpsMetadata = false;
+        options.TokenValidationParameters = new Microsoft.IdentityModel.Tokens.TokenValidationParameters
+        {
+            ValidateAudience = true,
+            ValidateIssuer = true,
+            ValidIssuer = "http://localhost:8080/realms/e-claims",
+        };
+    });
+
+builder.Services.AddAuthorization(options =>
+{
+    options.AddPolicy("AdminPolicy", policy => policy.RequireRole("admin-role"));
+    options.AddPolicy("UserPolicy", policy => policy.RequireRole("user-role"));
+});
+
+builder.Services.AddScoped<IClaimRepository, ClaimRepository>();
+builder.Services.AddScoped<IClaimService, ClaimServiceManager>();
+
+
+builder.Services.AddDbContext<ClaimDbContext>(options =>
+     options.UseNpgsql(builder.Configuration.GetConnectionString("ClaimDbConnection")));
+
+builder.Services.AddControllers();
+
+var app = builder.Build();
+
+
+using (var scope = app.Services.CreateScope())
+{
+    var services = scope.ServiceProvider;
+    var logger = services.GetRequiredService<ILogger<Program>>();
+    try
+    {
+        var context = services.GetRequiredService<ClaimDbContext>();
+
+        logger.LogInformation("Starting database migration...");
+        // Automatically apply migrations
+        context.Database.Migrate();
+        logger.LogInformation("Database migration completed.");
+
+        logger.LogInformation("Starting to seed data...");
+        // Seed data
+        SeedData.Initialize(services);
+        logger.LogInformation("Data seeding completed.");
+    }
+    catch (Exception ex)
+    {
+        logger.LogError(ex, "An error occurred during migration or seeding.");
+    }
+}
+
+// Configure the HTTP request pipeline.
+// if (app.Environment.IsDevelopment())
+// {
+app.UseSwagger();
+app.UseSwaggerUI();
+// }
+
+// app.UseHttpsRedirection();
+
+// Logging middleware to track incoming requests
+app.Use(async (context, next) =>
+{
+    var logger = context.RequestServices.GetRequiredService<ILogger<Program>>();
+    var remoteIp = context.Connection.RemoteIpAddress;
+    var forwardedFor = context.Request.Headers["X-Forwarded-For"];
+    logger.LogInformation($"Incoming request from {forwardedFor} (IP: {remoteIp}) to {context.Request.Path}");
+    await next.Invoke();
+});
+
+app.UseAuthentication();
+app.UseAuthorization();
+// Map controller routes
+app.MapControllers();
+
+
+app.Run();

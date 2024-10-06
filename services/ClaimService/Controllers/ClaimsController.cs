@@ -1,17 +1,38 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
+
+
 
 [Route("api/[controller]")]
 [ApiController]
 public class ClaimsController : ControllerBase
 {
     private readonly IClaimService _claimService;
+    private readonly ILogger<ClaimsController> _logger;
 
-    public ClaimsController(IClaimService claimService)
+    public ClaimsController(IClaimService claimService, ILogger<ClaimsController> logger)
     {
         _claimService = claimService;
+        _logger = logger;
+    }
+
+    [HttpGet("public")]
+    public IActionResult PublicEndpoint()
+    {
+        var roles = User.FindAll("role").Select(r => r.Value);
+        _logger.LogInformation("User roles: " + string.Join(", ", roles));
+
+        if (!roles.Contains("user-role"))
+        {
+            return Unauthorized("Insufficient permissions");
+        }
+
+       
+        return Ok("Claims present");
     }
 
     // GET: api/claims
+    [Authorize(Policy = "UserPolicy")]
     [HttpGet]
     public async Task<ActionResult<IEnumerable<Claim>>> GetClaims()
     {
@@ -33,6 +54,7 @@ public class ClaimsController : ControllerBase
     }
 
     // POST: api/claims
+    [Authorize(Policy = "UserPolicy")]
     [HttpPost]
     public async Task<ActionResult<Claim>> PostClaim(Claim claim)
     {
@@ -41,6 +63,7 @@ public class ClaimsController : ControllerBase
     }
 
     // PUT: api/claims/{id}
+    [Authorize(Policy = "UserPolicy")]
     [HttpPut("{id}")]
     public async Task<IActionResult> PutClaim(int id, Claim claim)
     {
@@ -54,6 +77,7 @@ public class ClaimsController : ControllerBase
     }
 
     // DELETE: api/claims/{id}
+    [Authorize(Policy = "AdminPolicy")]
     [HttpDelete("{id}")]
     public async Task<IActionResult> DeleteClaim(int id)
     {

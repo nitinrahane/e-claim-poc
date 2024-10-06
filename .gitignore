@@ -13,7 +13,7 @@ pids/
 
 # Ignore Docker data directories and logs
 docker-compose.override.yml
-*.env
+
 docker/*.log
 docker/postgres-data/
 docker/mongo-data/
@@ -32,9 +32,7 @@ Thumbs.db
 *.dylib
 
 # Ignore environment variables files
-.env
-.env.local
-.env.*.local
+
 
 # Ignore Visual Studio specific files
 .vscode/
