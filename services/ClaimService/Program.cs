@@ -1,6 +1,13 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Microsoft.OpenApi.Models;
+using Microsoft.IdentityModel.Tokens;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using System.Security.Claims;
+using Newtonsoft.Json.Linq;
+
+
+
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -32,24 +39,88 @@ builder.Services.AddSwaggerGen(c =>
 });
 
 
+// builder.Services.AddAuthentication("Bearer")
+//     .AddJwtBearer("Bearer", options =>
+//     {
+//         options.Authority = "http://localhost:8080/realms/e-claims"; // Keycloak realm
+//         options.RequireHttpsMetadata = false;
+//         options.TokenValidationParameters = new Microsoft.IdentityModel.Tokens.TokenValidationParameters
+//         {
+//             ValidateAudience = true,
+//             ValidAudience = "account", // Match the 'aud' in the token
+//             ValidateIssuer = true,
+//             ValidIssuer = "http://localhost:8080/realms/e-claims",
+//         };
+//     });
+
 builder.Services.AddAuthentication("Bearer")
     .AddJwtBearer("Bearer", options =>
     {
-        options.Authority = "http://localhost:8080/realms/e-claims"; // Keycloak realm
-        options.Audience = "kong"; // Your client ID in Keycloak
+        options.Authority = "http://localhost:8080/realms/e-claims";
         options.RequireHttpsMetadata = false;
         options.TokenValidationParameters = new Microsoft.IdentityModel.Tokens.TokenValidationParameters
         {
             ValidateAudience = true,
+            ValidAudience = "account", // Your client ID
             ValidateIssuer = true,
             ValidIssuer = "http://localhost:8080/realms/e-claims",
+            ValidateIssuerSigningKey = true,
+            IssuerSigningKeyResolver = (token, securityToken, kid, validationParameters) =>
+            {
+                // This will retrieve the keys from the JWKS URL
+                var httpClient = new HttpClient();
+                var jwks = httpClient.GetFromJsonAsync<JsonWebKeySet>("http://localhost:8080/realms/e-claims/protocol/openid-connect/certs").Result;
+                return jwks.Keys;
+            }
+        };
+        // Add your OnTokenValidated logic here
+        options.Events = new JwtBearerEvents
+        {
+            OnTokenValidated = context =>
+            {
+                var claimsIdentity = context.Principal.Identity as ClaimsIdentity;
+                var kongRoles = context.Principal.FindFirst("resource_access")?.Value;
+                var logger = context.HttpContext.RequestServices.GetRequiredService<ILogger<Program>>();
+
+                // Log the full token content
+                logger.LogInformation("Full token content: {Token}", context.SecurityToken.ToString());
+                
+                if (kongRoles != null)
+                {
+                    logger.LogInformation("Extracted resource_access from token: {KongRoles}", kongRoles);
+
+                    var roleClaim = JObject.Parse(kongRoles)["kong"]?["roles"];
+                    if (roleClaim != null)
+                    {
+                        logger.LogInformation("Extracted roles: {Roles}", roleClaim.ToString());
+                        var roles = roleClaim.ToObject<string[]>();
+
+                        foreach (var role in roles)
+                        {
+                            logger.LogInformation("Adding role claim: {Role}", role);
+                            claimsIdentity.AddClaim(new System.Security.Claims.Claim(ClaimTypes.Role, role));
+                        }
+                    }
+                    else
+                    {
+                        logger.LogWarning("No roles found under 'kong'.");
+                    }
+                }
+                else
+                {
+                    logger.LogWarning("No resource_access found in the token.");
+                }
+
+                return Task.CompletedTask;
+            }
         };
     });
 
+
 builder.Services.AddAuthorization(options =>
 {
-    options.AddPolicy("AdminPolicy", policy => policy.RequireRole("admin-role"));
-    options.AddPolicy("UserPolicy", policy => policy.RequireRole("user-role"));
+    options.AddPolicy("AdminPolicy", policy => policy.RequireRole("admin"));
+    options.AddPolicy("UserPolicy", policy => policy.RequireRole("user"));
 });
 
 builder.Services.AddScoped<IClaimRepository, ClaimRepository>();

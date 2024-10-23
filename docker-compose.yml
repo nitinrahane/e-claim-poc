@@ -1,3 +1,5 @@
+version: '3'
+
 services:
   postgres:
     image: postgres:latest  # Using the latest PostgreSQL version

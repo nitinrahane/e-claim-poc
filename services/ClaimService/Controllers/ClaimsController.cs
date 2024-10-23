@@ -32,7 +32,7 @@ public class ClaimsController : ControllerBase
     }
 
     // GET: api/claims
-    [Authorize(Policy = "UserPolicy")]
+    // [Authorize(Policy = "UserPolicy")]
     [HttpGet]
     public async Task<ActionResult<IEnumerable<Claim>>> GetClaims()
     {
@@ -41,6 +41,7 @@ public class ClaimsController : ControllerBase
     }
 
     // GET: api/claims/{id}
+    // [Authorize(Policy = "UserPolicy")]
     [HttpGet("{id}")]
     public async Task<ActionResult<Claim>> GetClaim(int id)
     {
@@ -54,7 +55,7 @@ public class ClaimsController : ControllerBase
     }
 
     // POST: api/claims
-    [Authorize(Policy = "UserPolicy")]
+    // [Authorize(Policy = "UserPolicy")]
     [HttpPost]
     public async Task<ActionResult<Claim>> PostClaim(Claim claim)
     {
@@ -63,7 +64,7 @@ public class ClaimsController : ControllerBase
     }
 
     // PUT: api/claims/{id}
-    [Authorize(Policy = "UserPolicy")]
+    // [Authorize(Policy = "UserPolicy")]
     [HttpPut("{id}")]
     public async Task<IActionResult> PutClaim(int id, Claim claim)
     {
@@ -77,7 +78,7 @@ public class ClaimsController : ControllerBase
     }
 
     // DELETE: api/claims/{id}
-    [Authorize(Policy = "AdminPolicy")]
+    // [Authorize(Policy = "AdminPolicy")]
     [HttpDelete("{id}")]
     public async Task<IActionResult> DeleteClaim(int id)
     {
