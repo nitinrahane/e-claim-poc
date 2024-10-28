@@ -74,6 +74,7 @@ services:
       - xpack.security.enabled=true
       - xpack.security.transport.ssl.enabled=false  # Disable SSL for transport
       - xpack.security.http.ssl.enabled=false  # Keep HTTP without SSL for simplicity
+      - action.auto_create_index=true
     ports:
       - "9200:9200"  # Elasticsearch HTTP API
     volumes:
