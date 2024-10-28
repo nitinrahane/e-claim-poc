@@ -28,10 +28,10 @@ consumers:
 
 jwt_secrets:
   - consumer: kong_consumer
-    key: http://localhost:8080/realms/e-claims
+    key: http://localhost:8080/realms/eclaim-realm
     algorithm: RS256
     rsa_public_key: |
       -----BEGIN PUBLIC KEY-----
-      MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA4Dd9aX5+a6UgF+c6Roeko6z/sxjb+SGA+vGJS1duVOpkjxj9yXYxk155cNGE42bxPZfV+fJ9HmkvYJa/IGRzhS/bJefFMmZm2Y41aGCgTbYsR4BkUC+vMjhiOap04B1oe8LA/2oH+jro/VdgRzm7Xa+41O1jCpbzbDt+vMDt/pG0acrWvGw/B6hV8NpPYpQEpri2LmCPEgNN1/npxqXoaOY966aO8/qtMYkKWWPMEQ4GHSilDamuJoC9YbiHqJK6QtTEisTAO2jUwdFd+nwbIma/RK0p8H9FMxKlcFL2C2kPCnTlm+V/KL82Dvi0gRyZZE4eBpR7w6w9+lPPAkp3JQIDAQAB
+      MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEArOsI09CmPMZFCD8+2PgUl6AQQyZcIE1D4WxJknxwen7l5DV5KvQfiyf7dAqyMxvOCl+ljzwUUx2W9OYtjWlJsnKNzPL6+S/4GcFk+FfgE59g5YD4GZsHNXD9P+bc5S4ngE2cqli2Et/TRMUZjirkWgZwetbi7ce5JKHHr7SG7ZEDhr7+Mb07UIRyrHMwPKKxLdmV5hpzMmowENuIdjsa56USyWu1i6ngt6ZCxKpkDcsgiE+PO4EUzrZm/1Du+E/dYHUuPaNymxnIn5aXEWPVfK/6oEgvWd0cBqxVHQwaRxCIk2hk6Po3YPS/+l2KZSDZaKMQtsAru9L8jH3uT1fyawIDAQAB
       -----END PUBLIC KEY-----
 

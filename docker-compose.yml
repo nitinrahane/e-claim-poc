@@ -67,6 +67,56 @@ services:
     networks:
       - e-claim-network   # Add the custom network 
 
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.15.3
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=true
+      - xpack.security.transport.ssl.enabled=false  # Disable SSL for transport
+      - xpack.security.http.ssl.enabled=false  # Keep HTTP without SSL for simplicity
+    ports:
+      - "9200:9200"  # Elasticsearch HTTP API
+    volumes:
+      - es-data:/usr/share/elasticsearch/data  # Persistent data
+    networks:
+      - e-claim-network
+
+
+
+  kibana:
+    image: docker.elastic.co/kibana/kibana:8.15.3 # Latest stable Kibana
+    environment:
+      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+      - ELASTICSEARCH_USERNAME=kibana_system  # Username set for Kibana
+      - ELASTICSEARCH_PASSWORD=admin@123
+    ports:
+      - "5601:5601"  # Kibana web interface
+    depends_on:
+      - elasticsearch
+    networks:
+      - e-claim-network
+
+  logstash:
+    build:
+      context: ./logstash  # Path where Dockerfile resides
+    ports:
+      - "5044:5044"  # Logstash Beats input port
+    environment:
+      LS_JAVA_OPTS: "-Xmx1g -Xms1g"
+    depends_on:
+     - elasticsearch
+    networks:
+    - e-claim-network
+
+  # RabbitMQ with management UI
+  rabbitmq:
+    image: rabbitmq:3-management  # RabbitMQ with management UI
+    ports:
+      - "5672:5672"  # RabbitMQ main port
+      - "15672:15672"  # RabbitMQ management console
+    networks:
+      - e-claim-network
+
 networks:
   e-claim-network:
     driver: bridge
@@ -74,3 +124,4 @@ networks:
 volumes:
   postgres-data:
   keycloak-data:     # Declare the keycloak-data volume  
+  es-data:
