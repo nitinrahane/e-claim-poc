@@ -17,6 +17,7 @@ var builder = WebApplication.CreateBuilder(args);
 Log.Logger = new LoggerConfiguration()
     .ReadFrom.Configuration(builder.Configuration)   // Reads from appsettings.json
     .Enrich.FromLogContext()
+    .Enrich.WithProperty("Application", "Claims API")
     .WriteTo.Console(new JsonFormatter())             // Outputs JSON to the console
     .WriteTo.Http("http://logstash:5044", queueLimitBytes: null) // Sends logs to Logstash
     .CreateLogger();
@@ -133,6 +134,8 @@ builder.Services.AddScoped<IClaimService, ClaimServiceManager>();
 builder.Services.AddControllers();
 
 var app = builder.Build();
+
+app.UseMiddleware<CorrelationIdMiddleware>();
 
 // Database migration and seeding
 using (var scope = app.Services.CreateScope())
