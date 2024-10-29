@@ -117,6 +117,32 @@ services:
       - "15672:15672"  # RabbitMQ management console
     networks:
       - e-claim-network
+  
+  mongodb:
+    image: mongo:latest
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: root
+      MONGO_INITDB_ROOT_PASSWORD: password
+    volumes:
+      - mongo-data:/data/db
+    networks:
+      - e-claim-network
+  
+  document-service:
+    build: ./services/DocumentService  # Path to Document Service code
+    environment:
+      ASPNETCORE_ENVIRONMENT: "Development"
+      MongoDbSettings__ConnectionString: "mongodb://root:password@mongodb:27017"
+      MongoDbSettings__DatabaseName: "DocumentDB"
+    ports:
+      - "5020:8080"
+    depends_on:
+      - mongodb
+    networks:
+      - e-claim-network
+
 
 networks:
   e-claim-network:
@@ -126,3 +152,4 @@ volumes:
   postgres-data:
   keycloak-data:     # Declare the keycloak-data volume  
   es-data:
+  mongo-data:
