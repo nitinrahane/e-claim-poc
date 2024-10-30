@@ -9,7 +9,7 @@ using Microsoft.AspNetCore.Authorization;
 
 namespace DocumentService.Controllers
 {
-    [Authorize(Policy = "UserPolicy")]
+    [Authorize(Policy = "CustomerPolicy")]
     [Route("api/[controller]")]
     [ApiController]
     public class DocumentController : ControllerBase

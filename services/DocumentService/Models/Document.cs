@@ -7,8 +7,11 @@ namespace DocumentService.Models
     public class Document
     {
         [BsonId]
-        [BsonRepresentation(BsonType.ObjectId)]
-        public string Id { get; set; }
+        public ObjectId Id { get; set; }
+
+        [BsonIgnore] // Ignore this field in MongoDB, only use for JSON serialization
+        public string IdString => Id.ToString(); // Serialize Id as a string for API responses
+
 
         [BsonElement("title")]
         public string Title { get; set; }

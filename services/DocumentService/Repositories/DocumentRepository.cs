@@ -1,33 +1,51 @@
-// Repositories/DocumentRepository.cs
-using DocumentService.Models;
+using MongoDB.Bson;
 using MongoDB.Driver;
-using System.Collections.Generic;
 using System.Threading.Tasks;
+using DocumentService.Models;
+using System.Collections.Generic;
 
 namespace DocumentService.Repositories
 {
     public class DocumentRepository : IDocumentRepository
     {
-        private readonly IMongoCollection<Document> _documents;
+        private readonly IMongoCollection<Document> _collection;
 
         public DocumentRepository(IMongoDatabase database)
         {
-            _documents = database.GetCollection<Document>("Documents");
+            _collection = database.GetCollection<Document>("Documents");
         }
 
-        public async Task<List<Document>> GetDocumentsAsync() =>
-            await _documents.Find(doc => true).ToListAsync();
+        // Get all documents
+        public async Task<List<Document>> GetDocumentsAsync()
+        {
+            return await _collection.Find(new BsonDocument()).ToListAsync();
+        }
 
-        public async Task<Document> GetDocumentAsync(string id) =>
-            await _documents.Find(doc => doc.Id == id).FirstOrDefaultAsync();
+        // Get a single document by ID
+        public async Task<Document> GetDocumentAsync(string id)
+        {
+            var filter = Builders<Document>.Filter.Eq(d => d.Id, ObjectId.Parse(id));
+            return await _collection.Find(filter).FirstOrDefaultAsync();
+        }
 
-        public async Task CreateDocumentAsync(Document document) =>
-            await _documents.InsertOneAsync(document);
+        // Create a new document
+        public async Task CreateDocumentAsync(Document document)
+        {
+            await _collection.InsertOneAsync(document);
+        }
 
-        public async Task UpdateDocumentAsync(string id, Document document) =>
-            await _documents.ReplaceOneAsync(doc => doc.Id == id, document);
+        // Update a document by ID
+        public async Task UpdateDocumentAsync(string id, Document document)
+        {
+            var filter = Builders<Document>.Filter.Eq(d => d.Id, ObjectId.Parse(id));
+            await _collection.ReplaceOneAsync(filter, document);
+        }
 
-        public async Task DeleteDocumentAsync(string id) =>
-            await _documents.DeleteOneAsync(doc => doc.Id == id);
+        // Delete a document by ID
+        public async Task DeleteDocumentAsync(string id)
+        {
+            var filter = Builders<Document>.Filter.Eq(d => d.Id, ObjectId.Parse(id));
+            await _collection.DeleteOneAsync(filter);
+        }
     }
 }
