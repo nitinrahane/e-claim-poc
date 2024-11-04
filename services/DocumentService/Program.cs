@@ -9,6 +9,9 @@ using Microsoft.OpenApi.Models;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using Newtonsoft.Json.Linq;
+using RabbitMQ.Client;
+using DocumentService.Messaging;
+using EClaim.Shared.Messaging;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -18,11 +21,13 @@ Log.Logger = new LoggerConfiguration()
     .Enrich.FromLogContext()
     .Enrich.WithProperty("Application", "Document API")
     .WriteTo.Console(
-        outputTemplate: "[{Timestamp:HH:mm:ss} {Level:u3}] {Message:lj}{NewLine}{Exception}")          // Outputs JSON to the console
+        outputTemplate: "[{Timestamp:HH:mm:ss} {Level:u3}] {Message:lj}{NewLine}{Exception}")          
     .WriteTo.Http("http://logstash:5044", queueLimitBytes: null) // Sends logs to Logstash
     .CreateLogger();
 
 builder.Host.UseSerilog();
+
+// Add CORS policy (assuming the configuration exists)
 var allowedOrigins = builder.Configuration.GetSection("CorsSettings:AllowedOrigins").Get<string[]>();
 builder.Services.AddCors(options =>
 {
@@ -34,6 +39,8 @@ builder.Services.AddCors(options =>
               .AllowCredentials();
     });
 });
+
+// Configure authentication and authorization
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
     {
@@ -89,7 +96,6 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
         };
     });
 
-// Authorization policies for role-based access
 builder.Services.AddAuthorization(options =>
 {
     options.AddPolicy("AdminPolicy", policy => policy.RequireRole("Admin"));
@@ -97,11 +103,8 @@ builder.Services.AddAuthorization(options =>
     options.AddPolicy("CustomerPolicy", policy => policy.RequireRole("Customer", "Manager", "Admin"));
 });
 
-
 // Configure MongoDB
-builder.Services.Configure<MongoDbSettings>(
-    builder.Configuration.GetSection("MongoDbSettings"));
-
+builder.Services.Configure<MongoDbSettings>(builder.Configuration.GetSection("MongoDbSettings"));
 builder.Services.AddSingleton<IMongoClient>(s =>
 {
     var settings = builder.Configuration.GetSection("MongoDbSettings").Get<MongoDbSettings>();
@@ -115,14 +118,61 @@ builder.Services.AddScoped(s =>
     return mongoClient.GetDatabase(settings.DatabaseName);
 });
 
+// Configure RabbitMQ connection with retry logic
+builder.Services.AddSingleton<IConnection>(sp =>
+{
+    var config = sp.GetRequiredService<IConfiguration>().GetSection("RabbitMQ");
+    var factory = new ConnectionFactory() 
+    { 
+        HostName = config["HostName"],
+        DispatchConsumersAsync = true // Enables async consumer support
+    };
+    
+    IConnection connection = null;
+    int retryCount = 5; // Maximum number of retries
+    int delay = 2000; // Delay in milliseconds between retries
+
+    for (int i = 0; i < retryCount; i++)
+    {
+        try
+        {
+            connection = factory.CreateConnection();
+            Log.Information("RabbitMQ connection established.");
+            break; // Exit loop if connection is successful
+        }
+        catch (Exception ex)
+        {
+            Log.Warning($"RabbitMQ connection attempt {i + 1} failed: {ex.Message}");
+            Task.Delay(delay).Wait(); // Wait before retrying
+        }
+    }
+
+    if (connection == null)
+    {
+        throw new Exception("Failed to connect to RabbitMQ after multiple attempts.");
+    }
+
+    return connection;
+});
+
+// Register DocumentCreatedSubscriber with dependencies
+builder.Services.AddSingleton<IEventSubscriber, DocumentCreatedSubscriber>(sp =>
+{
+    var connection = sp.GetRequiredService<IConnection>();
+    var scopeFactory = sp.GetRequiredService<IServiceScopeFactory>(); // Use scope factory instead
+    var logger = sp.GetRequiredService<ILogger<DocumentCreatedSubscriber>>();
+    var config = sp.GetRequiredService<IConfiguration>();
+
+    return new DocumentCreatedSubscriber(connection, scopeFactory, logger, config);
+});
+
 // Register DocumentRepository as a service
 builder.Services.AddScoped<IDocumentRepository, DocumentRepository>();
-
 builder.Services.AddControllers();
 builder.Services.AddScoped<DataSeeder>();
-
 builder.Services.AddEndpointsApiExplorer();
 
+// Swagger configuration
 builder.Services.AddSwaggerGen(c =>
 {
     c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
@@ -149,14 +199,18 @@ builder.Services.AddSwaggerGen(c =>
 var app = builder.Build();
 app.UseMiddleware<CorrelationIdMiddleware>();
 
+// Seed database
 using (var scope = app.Services.CreateScope())
 {
     var seeder = scope.ServiceProvider.GetRequiredService<DataSeeder>();
     await seeder.SeedAsync();
 }
 
-app.UseAuthorization();
+// Start RabbitMQ listener
+var subscriber = app.Services.GetRequiredService<IEventSubscriber>();
+subscriber.StartListening();
 
+app.UseAuthorization();
 app.MapControllers();
 app.UseSwagger();
 app.UseSwaggerUI();

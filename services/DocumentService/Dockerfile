@@ -1,22 +1,32 @@
-# Use the .NET SDK image to build the application
-FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build-env
+# Base runtime image
+FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS base
 WORKDIR /app
-
-# Copy the CSPROJ file and restore dependencies
-COPY *.csproj ./
-RUN dotnet restore
-
-# Copy the entire application and build it
-COPY . ./
-RUN dotnet publish -c Release -o out
-
-# Use the .NET ASP.NET Runtime image to run the application
-FROM mcr.microsoft.com/dotnet/aspnet:8.0
-WORKDIR /app
-COPY --from=build-env /app/out .
-
-# Expose the port the app runs on
 EXPOSE 8080
 
-# Start the application
+# Build image with SDK
+FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
+WORKDIR /src
+
+# Copy EClaim.Shared project files
+COPY EClaim.Shared/EClaim.Shared.csproj ./EClaim.Shared/
+
+# Copy DocumentService project files
+COPY DocumentService/DocumentService.csproj ./DocumentService/
+
+# Restore dependencies for DocumentService, including shared library
+RUN dotnet restore DocumentService/DocumentService.csproj
+
+# Copy all source files for both DocumentService and EClaim.Shared
+COPY EClaim.Shared/ ./EClaim.Shared/
+COPY DocumentService/ ./DocumentService/
+
+# Build and publish DocumentService
+WORKDIR /src/DocumentService
+RUN dotnet build -c Release -o /app/build
+RUN dotnet publish -c Release -o /app/publish
+
+# Final runtime setup
+FROM base AS final
+WORKDIR /app
+COPY --from=build /app/publish .
 ENTRYPOINT ["dotnet", "DocumentService.dll"]

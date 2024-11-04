@@ -149,10 +149,10 @@ builder.Services.AddSingleton<IEventPublisher, RabbitMqEventPublisher>(sp =>
     var config = sp.GetRequiredService<IConfiguration>().GetSection("RabbitMQ");
 
     // Declare the exchange
-    channel.ExchangeDeclare(exchange: config["Exchange"], type: ExchangeType.Direct);
+    channel.ExchangeDeclare(exchange: config["Exchange"], type: ExchangeType.Direct, durable: true);
 
     // Declare the queue and bind it to the exchange with a routing key
-    var queueName = config["QueueName"];        // Get the queue name from configuration
+    var queueName = config["Queue"];        // Get the queue name from configuration
     var routingKey = config["RoutingKey"];      // Get the routing key from configuration
 
     channel.QueueDeclare(queue: queueName, durable: true, exclusive: false, autoDelete: false, arguments: null);
