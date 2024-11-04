@@ -1,15 +1,17 @@
-using System.IdentityModel.Tokens.Jwt;
+// using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Hosting;
+// using Microsoft.Extensions.Logging;
+// using Microsoft.Extensions.Hosting;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using Newtonsoft.Json.Linq;
 using Serilog;
-using Serilog.Events;
+// using Serilog.Events;
 using Serilog.Formatting.Json;
+using RabbitMQ.Client;
+using EClaim.Shared.Messaging;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -132,6 +134,33 @@ builder.Services.AddDbContext<ClaimDbContext>(options =>
 builder.Services.AddScoped<IClaimRepository, ClaimRepository>();
 builder.Services.AddScoped<IClaimService, ClaimServiceManager>();
 builder.Services.AddControllers();
+
+builder.Services.AddSingleton<IConnection>(sp =>
+{
+    var config = sp.GetRequiredService<IConfiguration>().GetSection("RabbitMQ");
+    var factory = new ConnectionFactory() { HostName = config["HostName"] };
+    return factory.CreateConnection();
+});
+
+builder.Services.AddSingleton<IEventPublisher, RabbitMqEventPublisher>(sp =>
+{
+    var connection = sp.GetRequiredService<IConnection>();
+    var channel = connection.CreateModel();
+    var config = sp.GetRequiredService<IConfiguration>().GetSection("RabbitMQ");
+
+    // Declare the exchange
+    channel.ExchangeDeclare(exchange: config["Exchange"], type: ExchangeType.Direct);
+
+    // Declare the queue and bind it to the exchange with a routing key
+    var queueName = config["QueueName"];        // Get the queue name from configuration
+    var routingKey = config["RoutingKey"];      // Get the routing key from configuration
+
+    channel.QueueDeclare(queue: queueName, durable: true, exclusive: false, autoDelete: false, arguments: null);
+    channel.QueueBind(queue: queueName, exchange: config["Exchange"], routingKey: routingKey);
+
+    return new RabbitMqEventPublisher(channel);
+});
+
 
 var app = builder.Build();
 

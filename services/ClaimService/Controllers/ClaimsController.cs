@@ -3,6 +3,10 @@ using Microsoft.AspNetCore.Authorization;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using EClaim.Shared.Events;
+using EClaim.Shared.Messaging;
+using System.Security.Claims;
+using Elasticsearch.Net.Specification.SecurityApi;
 
 [Route("api/[controller]")]
 [ApiController]
@@ -10,11 +14,13 @@ public class ClaimsController : ControllerBase
 {
     private readonly IClaimService _claimService;
     private readonly ILogger<ClaimsController> _logger;
+    private readonly IEventPublisher _eventPublisher;
 
-    public ClaimsController(IClaimService claimService, ILogger<ClaimsController> logger)
+    public ClaimsController(IClaimService claimService, ILogger<ClaimsController> logger, IEventPublisher eventPublisher)
     {
         _claimService = claimService;
         _logger = logger;
+        _eventPublisher = eventPublisher;
     }
 
     // This endpoint is public, no authentication required
@@ -70,7 +76,21 @@ public class ClaimsController : ControllerBase
     public async Task<ActionResult<Claim>> PostClaim(Claim claim)
     {
         _logger.LogInformation($"Creating new claim for customer: {claim}");
+        var userId = HttpContext.User.FindFirst("sub")?.Value;
+
         var createdClaim = await _claimService.CreateClaim(claim);
+        var claimCreatedEvent = new ClaimCreatedEvent
+        {
+            ClaimId = createdClaim.Id.ToString(),
+            UserId = GetUserIdFromJwt(),
+            CreatedAt = DateTime.UtcNow,
+            //  DocumentId = claim.DocumentId,
+            CorrelationId = GetCorrelationIdFromHeader()
+        };
+
+        _eventPublisher.Publish(claimCreatedEvent, "claims_exchange", "claims.created");
+
+
         return CreatedAtAction(nameof(GetClaim), new { id = createdClaim.Id }, createdClaim);
     }
 
@@ -99,5 +119,19 @@ public class ClaimsController : ControllerBase
         _logger.LogInformation($"Deleting claim with ID: {id}");
         await _claimService.DeleteClaim(id);
         return NoContent();
+    }
+
+    private string GetUserIdFromJwt()
+    {
+        return User.FindFirstValue(ClaimTypes.NameIdentifier) ?? "UnknownUser";
+    }
+
+    private string GetCorrelationIdFromHeader()
+    {
+        if (Request.Headers.TryGetValue("X-Correlation-ID", out var correlationId))
+        {
+            return correlationId.ToString();
+        }
+        return Guid.NewGuid().ToString(); // Generate new Correlation ID if not provided
     }
 }

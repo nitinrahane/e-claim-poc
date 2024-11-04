@@ -35,7 +35,9 @@ services:
       - keycloak-data:/opt/keycloak/data
 
   claim-service:
-    build: ./services/ClaimService  # Path to your Claim Service
+    build: 
+      context: ./services
+      dockerfile: ClaimService/Dockerfile
     environment:
       ASPNETCORE_ENVIRONMENT: "Development"
       ConnectionStrings__ClaimDbConnection: "Host=postgres;Port=5432;Database=claim_db;Username=claim_user;Password=claim_password"
@@ -43,6 +45,7 @@ services:
       - "5016:8080"
     depends_on:
       - postgres
+      - rabbitmq
     networks:
       - e-claim-network
 
@@ -115,6 +118,9 @@ services:
     ports:
       - "5672:5672"  # RabbitMQ main port
       - "15672:15672"  # RabbitMQ management console
+    environment:
+      - RABBITMQ_DEFAULT_USER=guest
+      - RABBITMQ_DEFAULT_PASS=guest
     networks:
       - e-claim-network
   
