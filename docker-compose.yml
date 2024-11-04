@@ -159,7 +159,19 @@ services:
         condition: service_healthy
     networks:
       - e-claim-network
-
+  
+  document-processor:
+    image: document-processor:latest
+    build:
+      context: ./openfaas/document-processor
+    environment:
+      # Additional environment variables if needed
+      RabbitMQ__HostName: "rabbitmq"
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - e-claim-network
 
 networks:
   e-claim-network:

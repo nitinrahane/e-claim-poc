@@ -1,0 +1,15 @@
+provider:
+  name: openfaas
+  gateway: http://127.0.0.1:8080
+
+functions:
+  document-processor:
+    lang: dockerfile
+    handler: ./document-processor
+    image: document-processor:latest
+    environment:
+      rabbitmq_host: "rabbitmq"
+      rabbitmq_queue: "document-processed-queue"
+    secrets:
+      - rabbitmq_user
+      - rabbitmq_password

@@ -55,6 +55,12 @@ namespace DocumentService.Messaging
                     _channel.ExchangeDeclare(_exchange, ExchangeType.Direct, durable: true);
                     _channel.QueueDeclare(_queueName, durable: true, exclusive: false, autoDelete: false);
                     _channel.QueueBind(_queueName, _exchange, _routingKey);
+
+                    // Queue for processed document notifications
+                    _channel.QueueDeclare(queue: "document-processed-queue", durable: true, exclusive: false, autoDelete: false);
+                    _channel.QueueBind(queue: "document-processed-queue", exchange: _exchange, routingKey: "document.processed");
+
+                    _logger.LogInformation($"Declared exchange '{_exchange}', queue '{_queueName}' for processing, and 'document-processed-queue' for processed events.");
                     _logger.LogInformation($"Declared exchange '{_exchange}', queue '{_queueName}', and binding with routing key '{_routingKey}'.");
                 }
                 catch (Exception ex)
@@ -79,7 +85,7 @@ namespace DocumentService.Messaging
                 {
                     var claimEvent = JsonSerializer.Deserialize<ClaimCreatedEvent>(message);
                     _logger.LogInformation($"Received claim created event for Claim ID: {claimEvent.ClaimId}");
-                    
+
                     // Create a scope for processing each message
                     using (var scope = _scopeFactory.CreateScope())
                     {
@@ -110,7 +116,32 @@ namespace DocumentService.Messaging
 
             await documentRepository.CreateDocumentAsync(newDocument);
             _logger.LogInformation($"Document created in database for Claim ID: {claimEvent.ClaimId}");
+            PublishDocumentProcessedEvent(claimEvent.ClaimId, newDocument.Id.ToString(), claimEvent.CorrelationId);
         }
+
+        private void PublishDocumentProcessedEvent(string claimId, string documentId, string correlationId)
+        {
+            var processedEvent = new DocumentProcessedEvent
+            {
+                ClaimId = claimId,
+                DocumentId = documentId,
+                CorrelationId = correlationId, // Ensuring traceability with CorrelationId
+            };
+
+            var message = JsonSerializer.Serialize(processedEvent);
+            var body = Encoding.UTF8.GetBytes(message);
+
+            // Publish the event to RabbitMQ
+            _channel.BasicPublish(
+                exchange: _exchange,
+                routingKey: "document.processed",  // Routing key for processed documents
+                basicProperties: null,
+                body: body
+            );
+
+            _logger.LogInformation($"Published DocumentProcessedEvent for Document ID: {documentId}, Claim ID: {claimId}");
+        }
+
 
         public void Dispose()
         {
@@ -120,5 +151,7 @@ namespace DocumentService.Messaging
                 _channel.Dispose();
             }
         }
+
+
     }
 }
