@@ -1,0 +1,29 @@
+services:
+  gateway:
+    image: ghcr.io/openfaas/gateway:latest
+    ports:
+      - "8082:8080"
+    environment:
+      - gateway_upstream_url=http://faas-provider:8081
+      - read_timeout=60s
+      - write_timeout=60s
+      - faas_nats_address=nats
+    depends_on:
+      - faas-provider
+      - nats
+    networks:
+      - openfaas
+
+  faas-provider:
+    image: ghcr.io/openfaas/faas:latest  # Use the appropriate image for local setups
+    networks:
+      - openfaas
+
+  nats:
+    image: nats:latest
+    networks:
+      - openfaas
+
+networks:
+  openfaas:
+    driver: bridge
