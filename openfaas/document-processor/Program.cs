@@ -22,44 +22,72 @@ namespace DocumentProcessorApp
 
             Console.WriteLine("Document processor function started.");
 
-            var factory = new ConnectionFactory()
+            // Retry logic parameters
+            int maxRetries = 5;
+            int delayBetweenRetriesInSeconds = 5;
+            IConnection connection = null;
+
+            for (int attempt = 1; attempt <= maxRetries; attempt++)
             {
-                HostName = "rabbitmq", // Use "localhost" if RabbitMQ is running locally outside Docker
-                UserName = "guest",
-                Password = "guest",
-                DispatchConsumersAsync = true // Enable async consumer support
-            };
-
-            using var connection = factory.CreateConnection();
-            using var channel = connection.CreateModel();
-
-            string queueName = "document-processed-queue";  // Ensure this matches the queue name in RabbitMQ
-            channel.QueueDeclare(queue: queueName, durable: true, exclusive: false, autoDelete: false);
-
-            Console.WriteLine($"Listening for messages on queue: {queueName}");
-
-            var consumer = new AsyncEventingBasicConsumer(channel);
-            consumer.Received += async (model, ea) =>
-            {
-                var body = ea.Body.ToArray();
-                var message = Encoding.UTF8.GetString(body);
-                Console.WriteLine($"Received message: {message}");
-
                 try
                 {
-                    // Deserialize the message into a DocumentProcessedEvent object
-                    var documentEvent = JsonSerializer.Deserialize<DocumentProcessedEvent>(message);
-                    await ProcessDocument(documentEvent);
+                    var factory = new ConnectionFactory()
+                    {
+                        HostName = "rabbitmq", // Use "localhost" if RabbitMQ is running locally outside Docker
+                        UserName = "guest",
+                        Password = "guest",
+                        DispatchConsumersAsync = true // Enable async consumer support
+                    };
+
+                    connection = factory.CreateConnection();
+                    Console.WriteLine("Successfully connected to RabbitMQ.");
+                    break;
                 }
                 catch (Exception ex)
                 {
-                    Console.WriteLine($"Error processing message: {ex.Message}");
+                    Console.WriteLine($"Attempt {attempt} to connect to RabbitMQ failed: {ex.Message}");
+                    if (attempt == maxRetries)
+                    {
+                        Console.WriteLine("Maximum retry attempts reached. Exiting.");
+                        return; // Exit if all attempts fail
+                    }
+
+                    Console.WriteLine($"Retrying in {delayBetweenRetriesInSeconds} seconds...");
+                    await Task.Delay(delayBetweenRetriesInSeconds * 1000);
                 }
-            };
+            }
 
-            channel.BasicConsume(queue: queueName, autoAck: true, consumer: consumer);
+            using (connection)
+            using (var channel = connection.CreateModel())
+            {
+                string queueName = "document-processed-queue";  // Ensure this matches the queue name in RabbitMQ
+                channel.QueueDeclare(queue: queueName, durable: true, exclusive: false, autoDelete: false);
 
-            await host.RunAsync();
+                Console.WriteLine($"Listening for messages on queue: {queueName}");
+
+                var consumer = new AsyncEventingBasicConsumer(channel);
+                consumer.Received += async (model, ea) =>
+                {
+                    var body = ea.Body.ToArray();
+                    var message = Encoding.UTF8.GetString(body);
+                    Console.WriteLine($"Received message: {message}");
+
+                    try
+                    {
+                        // Deserialize the message into a DocumentProcessedEvent object
+                        var documentEvent = JsonSerializer.Deserialize<DocumentProcessedEvent>(message);
+                        await ProcessDocument(documentEvent);
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"Error processing message: {ex.Message}");
+                    }
+                };
+
+                channel.BasicConsume(queue: queueName, autoAck: true, consumer: consumer);
+
+                await host.RunAsync();
+            }
         }
 
         // Process the document based on the information in DocumentProcessedEvent

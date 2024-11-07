@@ -125,7 +125,7 @@ services:
       test: ["CMD", "rabbitmqctl", "status"]
       interval: 30s
       timeout: 30s
-      retries: 3
+      retries: 5
     networks:
       - e-claim-network
   
@@ -152,7 +152,7 @@ services:
       RabbitMQ__HostName: "rabbitmq"    # RabbitMQ host configuration
     ports:
       - "5020:8080"
-    depends_on:
+    depends_on:      
       mongodb:
         condition: service_started
       rabbitmq:
@@ -164,8 +164,7 @@ services:
     image: document-processor:latest
     build:
       context: ./openfaas/document-processor
-    environment:
-      # Additional environment variables if needed
+    environment:      
       RabbitMQ__HostName: "rabbitmq"
     depends_on:
       rabbitmq:
