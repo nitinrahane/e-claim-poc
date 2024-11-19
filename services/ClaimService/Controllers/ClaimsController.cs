@@ -7,6 +7,7 @@ using EClaim.Shared.Events;
 using EClaim.Shared.Messaging;
 using System.Security.Claims;
 using Elasticsearch.Net.Specification.SecurityApi;
+using ClaimService.Models;
 
 [Route("api/[controller]")]
 [ApiController]
@@ -46,7 +47,7 @@ public class ClaimsController : ControllerBase
     // This endpoint is for "Customer" role
     [Authorize(Policy = "CustomerPolicy")]
     [HttpGet]
-    public async Task<ActionResult<IEnumerable<Claim>>> GetClaims()
+    public async Task<ActionResult<IEnumerable<ClaimService.Models.Claim>>> GetClaims()
     {
         _logger.LogInformation("Getting claims for customer");
         var claims = await _claimService.GetAllClaims();
@@ -57,7 +58,7 @@ public class ClaimsController : ControllerBase
     // This endpoint is for "Customer" role
     [Authorize(Policy = "CustomerPolicy")]
     [HttpGet("{id}")]
-    public async Task<ActionResult<Claim>> GetClaim(int id)
+    public async Task<ActionResult<ClaimService.Models.Claim>> GetClaim(int id)
     {
         _logger.LogInformation($"Getting claim with ID: {id}");
         var claim = await _claimService.GetClaimById(id);
@@ -73,7 +74,7 @@ public class ClaimsController : ControllerBase
     // This endpoint is for "Customer" role
     [Authorize(Policy = "CustomerPolicy")]
     [HttpPost]
-    public async Task<ActionResult<Claim>> PostClaim(Claim claim)
+    public async Task<ActionResult<ClaimService.Models.Claim>> PostClaim(ClaimService.Models.Claim claim)
     {
         _logger.LogInformation($"Creating new claim for customer: {claim}");
         var userId = HttpContext.User.FindFirst("sub")?.Value;
@@ -98,7 +99,7 @@ public class ClaimsController : ControllerBase
     // This endpoint is for "Customer" role
     [Authorize(Policy = "CustomerPolicy")]
     [HttpPut("{id}")]
-    public async Task<IActionResult> PutClaim(int id, Claim claim)
+    public async Task<IActionResult> PutClaim(int id, ClaimService.Models.Claim claim)
     {
         _logger.LogInformation($"Updating claim with ID: {id}");
         if (id != claim.Id)

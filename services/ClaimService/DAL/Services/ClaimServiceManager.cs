@@ -1,3 +1,5 @@
+using ClaimService.Models;
+
 public class ClaimServiceManager : IClaimService
 {
     private readonly IClaimRepository _claimRepository;

@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using ClaimService.Models;
 
 public class ClaimRepository : IClaimRepository
 {

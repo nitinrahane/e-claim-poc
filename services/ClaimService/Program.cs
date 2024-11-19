@@ -175,7 +175,8 @@ using (var scope = app.Services.CreateScope())
     {
         var context = services.GetRequiredService<ClaimDbContext>();
         logger.LogInformation("Starting database migration...");
-        context.Database.Migrate();
+        await context.Database.EnsureDeletedAsync();
+        await context.Database.MigrateAsync();
         logger.LogInformation("Database migration completed.");
 
         logger.LogInformation("Starting to seed data...");
