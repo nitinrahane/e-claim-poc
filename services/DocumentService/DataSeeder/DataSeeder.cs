@@ -24,8 +24,11 @@ public class DataSeeder
             await _documentRepository.CreateDocumentAsync(new Document
             {
                 Title = "Sample Document",
-                Content = "This is a sample document content.",
-                CreatedAt = DateTime.UtcNow
+                FilePath = "/local-storage/documents/sample-document.pdf", // Adjust file path as needed
+                ContentType = "application/pdf", // MIME type for the document
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow,
+                OwnerId = "user12345"
             });
             Console.WriteLine("Seeded initial data to MongoDB.");
         }

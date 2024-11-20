@@ -110,10 +110,12 @@ namespace DocumentService.Messaging
             var newDocument = new Document
             {
                 Title = $"Document for Claim {claimEvent.ClaimId}",
-                Content = "Placeholder content",
-                CreatedAt = DateTime.UtcNow
+                FilePath = $"/local-storage/documents/{claimEvent.ClaimId}-document.pdf", // Example file path
+                ContentType = "application/pdf", // Assume a default MIME type for now
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow,
+                OwnerId = claimEvent.ClaimantId // Assuming `ClaimantId` is available in the event
             };
-
             await documentRepository.CreateDocumentAsync(newDocument);
             _logger.LogInformation($"Document created in database for Claim ID: {claimEvent.ClaimId}");
             PublishDocumentProcessedEvent(claimEvent.ClaimId, newDocument.Id.ToString(), claimEvent.CorrelationId);

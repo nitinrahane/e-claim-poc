@@ -1,4 +1,3 @@
-// Models/Document.cs
 using MongoDB.Bson;
 using MongoDB.Bson.Serialization.Attributes;
 
@@ -10,16 +9,24 @@ namespace DocumentService.Models
         public ObjectId Id { get; set; }
 
         [BsonIgnore] // Ignore this field in MongoDB, only use for JSON serialization
-        public string IdString => Id.ToString(); // Serialize Id as a string for API responses
-
+        public string IdString => Id.ToString();
 
         [BsonElement("title")]
         public string Title { get; set; }
 
-        [BsonElement("content")]
-        public string Content { get; set; }
+        [BsonElement("filePath")]
+        public string FilePath { get; set; } 
+
+        [BsonElement("contentType")]
+        public string ContentType { get; set; } 
 
         [BsonElement("createdAt")]
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+
+        [BsonElement("updatedAt")]
+        public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+
+        [BsonElement("ownerId")]
+        public string OwnerId { get; set; }
     }
 }

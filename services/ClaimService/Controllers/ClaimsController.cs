@@ -82,10 +82,9 @@ public class ClaimsController : ControllerBase
         var createdClaim = await _claimService.CreateClaim(claim);
         var claimCreatedEvent = new ClaimCreatedEvent
         {
-            ClaimId = createdClaim.Id.ToString(),
-            UserId = GetUserIdFromJwt(),
+            ClaimId = createdClaim.Id.ToString(),            
             CreatedAt = DateTime.UtcNow,
-            //  DocumentId = claim.DocumentId,
+            ClaimantId = GetUserIdFromJwt(),
             CorrelationId = GetCorrelationIdFromHeader()
         };
 

@@ -33,6 +33,29 @@ services:
       - e-claim-network   # Add the custom network
     volumes:
       - keycloak-data:/opt/keycloak/data
+  # keycloak:
+  # image: quay.io/keycloak/keycloak:latest
+  # environment:
+  #   KEYCLOAK_ADMIN: admin
+  #   KEYCLOAK_ADMIN_PASSWORD: admin
+  #   DB_VENDOR: POSTGRES
+  #   DB_ADDR: postgres
+  #   DB_DATABASE: keycloak_db
+  #   DB_USER: claim_user
+  #   DB_PASSWORD: claim_password
+  # command:
+  #   - start-dev
+  #   - --import-realm   # Import realms during the first run
+  # ports:
+  #   - "8080:8080"
+  # depends_on:
+  #   - postgres
+  # networks:
+  #   - e-claim-network
+  # volumes:
+  #   - ./keycloak/realm-export.json:/opt/keycloak/data/import/realm-export.json  # Updated path to the file
+  #   - keycloak-data:/opt/keycloak/data  # Persistent runtime data
+
 
   claim-service:
     build: 

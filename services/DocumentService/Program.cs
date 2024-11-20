@@ -12,6 +12,10 @@ using Newtonsoft.Json.Linq;
 using RabbitMQ.Client;
 using DocumentService.Messaging;
 using EClaim.Shared.Messaging;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.OpenApi.Models;
+using Swashbuckle.AspNetCore.SwaggerGen;
+
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -105,6 +109,7 @@ builder.Services.AddAuthorization(options =>
 
 // Configure MongoDB
 builder.Services.Configure<MongoDbSettings>(builder.Configuration.GetSection("MongoDbSettings"));
+builder.Services.AddScoped<IFileStorageService, LocalFileStorageService>();
 builder.Services.AddSingleton<IMongoClient>(s =>
 {
     var settings = builder.Configuration.GetSection("MongoDbSettings").Get<MongoDbSettings>();
@@ -171,10 +176,18 @@ builder.Services.AddScoped<IDocumentRepository, DocumentRepository>();
 builder.Services.AddControllers();
 builder.Services.AddScoped<DataSeeder>();
 builder.Services.AddEndpointsApiExplorer();
+builder.Services.Configure<IISServerOptions>(options =>
+{
+    options.MaxRequestBodySize = int.MaxValue;
+});
+ 
 
 // Swagger configuration
 builder.Services.AddSwaggerGen(c =>
 {
+    c.SwaggerDoc("v1", new OpenApiInfo { Title = "Document API", Version = "v1" });
+
+    // Add security definitions for JWT
     c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
     {
         Name = "Authorization",
@@ -184,6 +197,7 @@ builder.Services.AddSwaggerGen(c =>
         In = ParameterLocation.Header,
         Description = "Enter 'Bearer' followed by a space and the token",
     });
+
     c.AddSecurityRequirement(new OpenApiSecurityRequirement
     {
         {
@@ -194,6 +208,9 @@ builder.Services.AddSwaggerGen(c =>
             new string[] {}
         }
     });
+
+    // Register the custom operation filter for file uploads
+    c.OperationFilter<FileUploadOperationFilter>();
 });
 
 var app = builder.Build();
@@ -213,7 +230,10 @@ subscriber.StartListening();
 app.UseAuthorization();
 app.MapControllers();
 app.UseSwagger();
-app.UseSwaggerUI();
+app.UseSwaggerUI(c =>
+{
+    c.SwaggerEndpoint("/swagger/v1/swagger.json", "Document API V1");
+});
 app.UseCors("KongCorsPolicy");
 app.Run();
 
@@ -221,4 +241,39 @@ public class MongoDbSettings
 {
     public string ConnectionString { get; set; }
     public string DatabaseName { get; set; }
+}
+
+public class FileUploadOperationFilter : IOperationFilter
+{
+    public void Apply(OpenApiOperation operation, OperationFilterContext context)
+    {
+        var fileParameters = context.ApiDescription.ParameterDescriptions
+            .Where(p => p.Type == typeof(IFormFile));
+
+        if (fileParameters.Any())
+        {
+            operation.RequestBody = new OpenApiRequestBody
+            {
+                Content = new Dictionary<string, OpenApiMediaType>
+                {
+                    ["multipart/form-data"] = new OpenApiMediaType
+                    {
+                        Schema = new OpenApiSchema
+                        {
+                            Type = "object",
+                            Properties = new Dictionary<string, OpenApiSchema>
+                            {
+                                ["file"] = new OpenApiSchema
+                                {
+                                    Type = "string",
+                                    Format = "binary"
+                                }
+                            },
+                            Required = new HashSet<string> { "file" }
+                        }
+                    }
+                }
+            };
+        }
+    }
 }
